@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>dEQP test suite</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+#left {
+  position: fixed;
+  left: 0;
+  top: 0;
+  padding: 8px;
+  height: 100%;
+  width: 433px;
+  overflow-y: scroll;
+  box-shadow: 0 0 2px 1px;
+  background: white;
+}
+#buildinfo {
+  width: 100%;
+  height: 3em;
+  border: 0;
+}
+#canvas {
+  border: 1px solid gray;
+  height: 302px;
+  width: 402px;
+}
+#status {
+  background: #eee;
+  width: 100%;
+  height: 10em;
+  resize: none;
+  padding: 0.25em;
+}
+#root {
+  width: 270px;
+}
+#fileIndex {
+  min-height: 10em;
+}
+#knownIssues {
+  width: 100%;
+  background: #eee;
+  padding: 0.25em;
+}
+#main {
+  position: relative;
+  left: 444px;
+  /* prevent relayouts and word wraps */
+  width: 2000px;
+}
+.subgroup {
+  padding-left: 0.5em;
+}
+.result {
+  width: 1800px;
+}
+.result[data-result='PASS'] {
+  background-color: #9f9;
+}
+.result[data-result='FAIL'] {
+  background-color: #faa;
+}
+.result[data-result='OTHER'] {
+  background-color: #fd9;
+}
+.hasdescription {
+  border-bottom: 1px dotted gray;
+}
+</style>
+
+</head>
+<body>
+
+<div id="main">
+  <ul id="caselist">
+  </ul>
+</div>
+
+<div id="left">
+  <iframe id="buildinfo" src="build.txt" scrolling=no></iframe>
+  <canvas id="canvas" width=400 height=300></canvas>
+  Status:
+  <textarea id="status" readonly>If this message persists, check the console.</textarea>
+  <div>
+    Root: <input type="text" size=100 id="root" name="root" value="dEQP-GLES2">
+    <input type="button" value="Load Root" id="loadBtn" disabled>
+  </div>
+  <div>
+    <input type="button" value="Stop Execution" id="stopBtn" disabled>
+    <input type="checkbox" id="pauseBtn"><label for="pauseBtn">Pause</label>
+    <input type="checkbox" id="autoscrollBtn" checked><label for="autoscrollBtn">Auto-scroll</label>
+    <input type="checkbox" id="printToConsoleBtn" checked><label for="printToConsoleBtn">Stdout to console</label>
+  </div>
+  Files:
+  <div id="fileIndex">
+  </div>
+  <div id="knownIssues">
+    Known issues:
+    <ul>
+      <li>Incremental builds do not always work - some changes are not
+        reflected (such as changes to library_gl.js).
+      <li>dEQP-GLES3.functional has not been thoroughly tested - it may or may
+        not run all the way through without stopping.
+      <li>Release builds load faster than RelWithDebInfo builds, but both run
+        equally fast. There may be a better set of build flags.
+      <li>There is no way to run GLES2 tests against WebGL 2.0.
+    </ul>
+  </div>
+</div>
+
+<script>
+"use strict";
+var load_t0 = performance.now();
+var stdoutValue = "";
+
+function downloadString(text, fileType, fileName) {
+  var blob = new Blob([text], { type: fileType });
+
+  var a = document.createElement('a');
+  a.download = fileName;
+  a.href = URL.createObjectURL(blob);
+  a.dataset.downloadurl = [fileType, a.download, a.href].join(':');
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(a.href); }, 1500);
+}
+
+function getFileContents(filename) {
+  if (filename == "output.txt") {
+    return stdoutValue;
+  }
+  try {
+    return FS.readFile("/" + filename, {encoding: "utf8"})
+  } catch (e) {
+    return e.toString();
+  }
+}
+
+let fileIndex = document.getElementById("fileIndex");
+let existingFiles = [];
+function updateFileList() {
+  let files = ["output.txt"];
+  for (let f of FS.readdir("/")) {
+    if (FS.isFile(FS.stat("/" + f).mode)) {
+      files.push(f);
+    }
+  }
+  for (let f of files) {
+    if (existingFiles.includes(f)) {
+      continue;
+    }
+    existingFiles.push(f);
+    let div = document.createElement("div");
+    fileIndex.appendChild(div);
+    let dlbutton = document.createElement("input");
+    div.appendChild(dlbutton);
+    dlbutton.type = "button";
+    dlbutton.value = "Download";
+    dlbutton.onclick = () => {
+      downloadString(getFileContents(f), "text/plain", f);
+    };
+    let name = document.createElement("label");
+    div.appendChild(name);
+    name.setAttribute("for", "sel-" + f);
+    name.innerText = f;
+  }
+}
+
+window.onbeforeunload = () => {
+    // Prompt user before reloading
+    return false;
+};
+
+let rootBox = document.getElementById("root");
+rootBox.onchange = () => {
+  window.location.hash = rootBox.value;
+};
+window.onhashchange = () => {
+  if (window.location.hash) {
+    rootBox.value = window.location.hash.substring(1);
+  }
+};
+window.onhashchange();
+
+let stopBtn = document.getElementById("stopBtn");
+stopBtn.onclick = () => {
+  stop();
+};
+let pauseBtn = document.getElementById("pauseBtn");
+let autoscrollBtn = document.getElementById("autoscrollBtn");
+let printToConsolebtn = document.getElementById("printToConsoleBtn");
+let statusBox = document.getElementById("status");
+
+var Module = {
+  canvas: document.getElementById('canvas'),
+  wasmBinary: null,
+  print: function(text) {
+    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+    stdoutValue += text + "\n";
+    if (printToConsoleBtn.checked) {
+      console.log(text);
+    }
+  },
+  printErr: function(text) {
+    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+    stdoutValue += text + "\n";
+    console.error(text);
+  },
+  onRuntimeInitialized: onload,
+  onAbort: function(e) {
+    statusBox.innerText = e;
+  }
+};
+
+statusBox.innerText = "Fetching WebAssembly binary...";
+fetch("deqp.wasm")
+  .then(response => response.arrayBuffer())
+  .then(buffer => {
+    statusBox.innerText = "WebAssembly module loading...";
+    Module.wasmBinary = buffer;
+    let script = document.createElement("script");
+    script.src = "deqp.js";
+    document.body.append(script);
+  });
+
+var deqp = null;
+let lastStartedPathGlob = "";
+let testListItems = new Map();
+
+let loadBtn = document.getElementById("loadBtn");
+function onload() {
+  loadBtn.disabled = false;
+  let loadTime = performance.now() - load_t0;
+  statusBox.value = `WebAssembly module loaded in ~${loadTime}. Load a test root!`;
+}
+
+function htmlify(rootpath, html, xml, parentpath) {
+  let path;
+  let ispackage = false;
+  let isgroup = true;
+  if (parentpath) {
+    path = parentpath + "." + xml.attributes["Name"].value;
+    isgroup = xml.attributes["CaseType"].value == "TestGroup";
+  } else {
+    path = xml.attributes["PackageName"].value;
+    ispackage = true;
+  }
+  let desc = xml.attributes["Description"].value;
+  let pathglob = path;
+  if (isgroup) {
+    pathglob += ".*";
+  }
+  let li = document.createElement("li");
+  {
+    html.appendChild(li);
+    testListItems[path] = li;
+    if (pathglob.startsWith(rootpath)) {
+      let btn = document.createElement("input");
+      li.appendChild(btn);
+      btn.type = "button";
+      btn.value = "Run";
+      btn.onclick = () => {
+        let now = new Date().toISOString();
+        now = now.replace('T', '_');
+        now = now.replace(/[.].../, '');
+        now = now.replace(/[:]/g, '');
+        let qpa = `TestResults_${now}.qpa`;
+        lastStartedPathGlob = pathglob;
+        start(`--deqp-log-filename=${qpa} --deqp-case=${pathglob}`);
+      };
+    }
+    let anchor = document.createElement("a");
+    {
+      li.appendChild(anchor);
+      li.jumpAnchor = anchor;
+    }
+    let span = document.createElement("span");
+    {
+      li.appendChild(span);
+      span.classList.add("name");
+      span.innerText = pathglob;
+      if (desc) {
+        span.classList.add("hasdescription");
+        span.title = desc;
+      }
+    }
+    if (!isgroup) {
+      let div = document.createElement("div");
+      li.appendChild(div);
+      li.resultDiv = div;
+      div.classList.add("result");
+      div.innerHTML = "&nbsp;";
+    }
+    if (xml.children.length) {
+      let ul = document.createElement("ul");
+      ul.classList.add("subgroup");
+      li.appendChild(ul);
+      for (let child of xml.children) {
+        htmlify(rootpath, ul, child, path);
+      }
+    }
+  }
+}
+
+let caselist = document.getElementById("caselist");
+loadBtn.onclick = () => {
+  if (crashed) return;
+  caselist.innerHTML = "";
+  loadCases(rootBox.value);
+};
+
+function loadCases(rootpath) {
+  start(`--deqp-runmode=xml-caselist --deqp-log-filename=TestResults_caselist.qpa --deqp-caselist-export-file=cases.xml --deqp-case=${rootpath}.*`);
+  // It's not actually necessary for deqp to iterate() to produce
+  // the caselist - cases.xml is available immediately.
+  stop();
+
+  let content = getFileContents("/cases.xml", {encoding: "utf8"});
+  let xml = new DOMParser().parseFromString(content, "text/xml");
+
+  htmlify(rootpath, caselist, xml.firstChild);
+  statusBox.value = "Loaded test root: " + rootpath;
+}
+
+let crashed = false;
+function crash(e) {
+  loadBtn.disabled = true;
+  statusBox.value = "Crashed!\n\n" + e;
+}
+
+function start(args) {
+  if (crashed) return;
+  try {
+    stop();
+    stopBtn.disabled = false;
+    deqp = new Module.dEQPJS(args);
+    deqp.log = deqp.getTestLog();
+    requestAnimationFrame(iterate);
+  } catch (e) {
+    stop();
+    crash(e);
+    throw e;
+  }
+}
+
+function stop() {
+  updateFileList();
+  stopBtn.disabled = true;
+  if (deqp) {
+    deqp.delete();
+  }
+  deqp = null;
+}
+
+function flushResultsQueue() {
+  let path, resultName, description, li;
+  while (deqp.log.peekNextExists()) {
+    path = deqp.log.peekNextPath();
+    let result = deqp.log.peekNextResult();
+    resultName = deqp.log.peekNextResultName();
+    description = deqp.log.peekNextDescription();
+    deqp.log.pop();
+
+    // find the result div for this test case
+    li = testListItems[path];
+    if (li) {
+      let div = li.resultDiv;
+      div.innerText = resultName + ": " + description;
+      if (result == Module.qpTestResult.PASS) {
+        div.setAttribute("data-result", "PASS");
+      } else if (result == Module.qpTestResult.FAIL) {
+        div.setAttribute("data-result", "FAIL");
+      } else {
+        div.setAttribute("data-result", "OTHER");
+      }
+    }
+  }
+
+  if (path) {
+    statusBox.value = `${resultName}\n${path}\n\n${description}`;
+    if (autoscrollBtn.checked) {
+      let anchor = li.jumpAnchor;
+      anchor.scrollIntoView(true);
+      if (window.scrollY < document.body.scrollHeight - window.innerHeight) {
+        window.scrollBy(0, -window.innerHeight / 2);
+      }
+    }
+  }
+}
+
+function iterate() {
+  if (!deqp) {
+    return;
+  }
+  if (pauseBtn.checked) {
+    requestAnimationFrame(iterate);
+    return;
+  }
+  try {
+    let more;
+    let startTime = performance.now();
+    // Run this loop for up to 30ms + one iteration
+    const MAX_MS_PER_ITERATION = 30;
+    do {
+      more = deqp.iterate();
+    } while (more && (performance.now() - startTime < MAX_MS_PER_ITERATION));
+    flushResultsQueue();
+    if (more) {
+      requestAnimationFrame(iterate);
+    } else {
+      statusBox.value = "Test run completed: " + lastStartedPathGlob;
+      stop();
+    }
+  } catch (e) {
+    deqp = null;
+    statusBox.value = e;
+    stop();
+    throw e;
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,3 @@
+[submodule "deqp"]
+	path = deqp
+	url = https://github.com/kainino0x/deqp.git
