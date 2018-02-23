@@ -43,11 +43,6 @@
 #fileIndex {
   min-height: 10em;
 }
-#knownIssues {
-  width: 100%;
-  background: #eee;
-  padding: 0.25em;
-}
 #main {
   position: relative;
   left: 444px;
@@ -99,18 +94,6 @@
   </div>
   Files:
   <div id="fileIndex">
-  </div>
-  <div id="knownIssues">
-    Known issues:
-    <ul>
-      <li>Incremental builds do not always work - some changes are not
-        reflected (such as changes to library_gl.js).
-      <li>dEQP-GLES3.functional has not been thoroughly tested - it may or may
-        not run all the way through without stopping.
-      <li>Release builds load faster than RelWithDebInfo builds, but both run
-        equally fast. There may be a better set of build flags.
-      <li>There is no way to run GLES2 tests against WebGL 2.0.
-    </ul>
   </div>
 </div>
 
@@ -272,7 +255,7 @@ function htmlify(rootpath, html, xml, parentpath) {
         now = now.replace('T', '_');
         now = now.replace(/[.].../, '');
         now = now.replace(/[:]/g, '');
-        let qpa = `TestResults_${now}.qpa`;
+        let qpa = `TestResults_${now}_${pathglob}.qpa`;
         lastStartedPathGlob = pathglob;
         start(`--deqp-log-filename=${qpa} --deqp-case=${pathglob}`);
       };
