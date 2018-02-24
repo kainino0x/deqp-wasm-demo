@@ -221,8 +221,8 @@ let testListItems = new Map();
 let loadBtn = document.getElementById("loadBtn");
 function onload() {
   loadBtn.disabled = false;
-  let loadTime = performance.now() - load_t0;
-  statusBox.value = `WebAssembly module loaded in ~${loadTime}. Load a test root!`;
+  let loadTime = Math.floor(performance.now() - load_t0);
+  statusBox.value = `WebAssembly module loaded in ~${loadTime}ms. Load a test root!`;
 }
 
 function htmlify(rootpath, html, xml, parentpath) {

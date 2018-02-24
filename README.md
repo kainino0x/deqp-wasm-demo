@@ -2,6 +2,10 @@
 
 ## [Live Site (ES2+ES3)](http://kai.graphics/deqp-web-harness-live/)
 
+* [KhronosGroup/WebGL tracking issue](https://github.com/KhronosGroup/WebGL/issues/2599)
+* [Test Results](https://drive.google.com/corp/drive/u/1/folders/1sfsWaMEzxpShfSZaFf6uWk90wBgM2Uzt)
+* [Progress Report 2018-02-23](https://docs.google.com/document/d/1QtiiNBL0U5Dyv2IuDrJy5H1UIGxitd32IJBApSecZ7c/edit?usp=sharing)
+
 ## Running Tests
 
 First, enter a test root and click "Load Root".
@@ -20,19 +24,23 @@ your browser's development tools open.
 ## Viewing Test Results
 
 Each test run will produce a new `.qpa` file.
-These files can be loaded in
+These files can be downloaded, then loaded in
 [Cherry](https://android.googlesource.com/platform/external/cherry/+/master/README)'s
 "Results" tab.
+Results between different test runs (different browsers, builds, etc.) can be
+compared in Cherry using the "Compare selected" functionality.
 (Tests cannot be executed in the web harness directly from Cherry.)
+
+**Tip:** `.qpa` files can be concatenated. For example, in order to get test
+results for `dEQP-GLES3` (which runs out of memory in the middle), I ran each
+subgroup of `dEQP-GLES3.functional` separately, then concatenated them all
+together (with `cat`) into one `.qpa` file.
 
 ## Known Issues
 
 * The tests in `dEQP-GLES3.functional` all run without crashing the harness,
   but (at least on some machines/browsers) it may run out of memory in the
   middle of a contiguous run.
-* Builds with more optimization flags load faster than RelWithDebInfo builds,
-  but both run equally fast. There may be a better set of build flags than the
-  one used for RelWithDebInfo.
 * There is no way to run GLES2 tests against WebGL 2.0.
 * All page state (including `.qpa` file output) is transient and will disappear
   if the page is reloaded or crashes.
