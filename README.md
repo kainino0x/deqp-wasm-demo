@@ -4,7 +4,9 @@
 
 * [KhronosGroup/WebGL tracking issue](https://github.com/KhronosGroup/WebGL/issues/2599)
 * [Test Results](https://drive.google.com/corp/drive/u/1/folders/1sfsWaMEzxpShfSZaFf6uWk90wBgM2Uzt)
-* [Progress Report 2018-02-23](https://docs.google.com/document/d/1QtiiNBL0U5Dyv2IuDrJy5H1UIGxitd32IJBApSecZ7c/edit?usp=sharing)
+* [Progress Report 2018-02-28](https://docs.google.com/document/d/1QtiiNBL0U5Dyv2IuDrJy5H1UIGxitd32IJBApSecZ7c/edit?usp=sharing)
+
+See the Progress Report for much more detailed documentation.
 
 ## Running Tests
 

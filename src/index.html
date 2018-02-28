@@ -90,7 +90,10 @@
     <input type="button" value="Stop Execution" id="stopBtn" disabled>
     <input type="checkbox" id="pauseBtn"><label for="pauseBtn">Pause</label>
     <input type="checkbox" id="autoscrollBtn" checked><label for="autoscrollBtn">Auto-scroll</label>
+    <input type="checkbox" id="silentModeBtn"><label for="silentModeBtn">Silent mode</label>
+    <br>
     <input type="checkbox" id="printToConsoleBtn" checked><label for="printToConsoleBtn">Stdout to console</label>
+    <input type="checkbox" id="autoDownloadBtn" checked><label for="autoDownloadBtn">Auto-download QPAs</label>
   </div>
   Files:
   <div id="fileIndex">
@@ -99,8 +102,22 @@
 
 <script>
 "use strict";
-var load_t0 = performance.now();
+var loadStartTime = performance.now();
+var runStartTime;
 var stdoutValue = "";
+
+let canvas = document.getElementById('canvas');
+let fileIndex = document.getElementById("fileIndex");
+let rootBox = document.getElementById("root");
+let stopBtn = document.getElementById("stopBtn");
+let pauseBtn = document.getElementById("pauseBtn");
+let autoscrollBtn = document.getElementById("autoscrollBtn");
+let silentModeBtn = document.getElementById("silentModeBtn");
+let printToConsolebtn = document.getElementById("printToConsoleBtn");
+let autoDownloadButn = document.getElementById("autoDownloadBtn");
+let statusBox = document.getElementById("status");
+let loadBtn = document.getElementById("loadBtn");
+let caselist = document.getElementById("caselist");
 
 function downloadString(text, fileType, fileName) {
   var blob = new Blob([text], { type: fileType });
@@ -127,7 +144,6 @@ function getFileContents(filename) {
   }
 }
 
-let fileIndex = document.getElementById("fileIndex");
 let existingFiles = [];
 function updateFileList() {
   let files = ["output.txt"];
@@ -162,7 +178,6 @@ window.onbeforeunload = () => {
     return false;
 };
 
-let rootBox = document.getElementById("root");
 rootBox.onchange = () => {
   window.location.hash = rootBox.value;
 };
@@ -173,17 +188,12 @@ window.onhashchange = () => {
 };
 window.onhashchange();
 
-let stopBtn = document.getElementById("stopBtn");
 stopBtn.onclick = () => {
   stop();
 };
-let pauseBtn = document.getElementById("pauseBtn");
-let autoscrollBtn = document.getElementById("autoscrollBtn");
-let printToConsolebtn = document.getElementById("printToConsoleBtn");
-let statusBox = document.getElementById("status");
 
 var Module = {
-  canvas: document.getElementById('canvas'),
+  canvas: canvas,
   wasmBinary: null,
   print: function(text) {
     if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
@@ -203,26 +213,28 @@ var Module = {
   }
 };
 
-statusBox.innerText = "Fetching WebAssembly binary...";
-fetch("deqp.wasm")
-  .then(response => response.arrayBuffer())
-  .then(buffer => {
-    statusBox.innerText = "WebAssembly module loading...";
-    Module.wasmBinary = buffer;
-    let script = document.createElement("script");
-    script.src = "deqp.js";
-    document.body.append(script);
-  });
+setTimeout(() => {
+  statusBox.innerText = "Fetching WebAssembly binary...";
+  fetch("deqp.wasm")
+    .then(response => response.arrayBuffer())
+    .then(buffer => {
+      statusBox.innerText = "WebAssembly module loading...";
+      Module.wasmBinary = buffer;
+      let script = document.createElement("script");
+      script.src = "deqp.js";
+      document.body.append(script);
+    });
+}, 0);
 
 var deqp = null;
-let lastStartedPathGlob = "";
+let lastStartedQpa = null;
+let lastStartedPathGlob = null;
 let testListItems = new Map();
 
-let loadBtn = document.getElementById("loadBtn");
 function onload() {
   loadBtn.disabled = false;
-  let loadTime = Math.floor(performance.now() - load_t0);
-  statusBox.value = `WebAssembly module loaded in ~${loadTime}ms. Load a test root!`;
+  let loadTime = Math.floor(performance.now() - loadStartTime) / 1000;
+  statusBox.value = `WebAssembly module loaded in ${loadTime}s. Load a test root!`;
 }
 
 function htmlify(rootpath, html, xml, parentpath) {
@@ -256,8 +268,10 @@ function htmlify(rootpath, html, xml, parentpath) {
         now = now.replace(/[.].../, '');
         now = now.replace(/[:]/g, '');
         let qpa = `TestResults_${now}_${pathglob}.qpa`;
+        lastStartedQpa = qpa;
         lastStartedPathGlob = pathglob;
         start(`--deqp-log-filename=${qpa} --deqp-case=${pathglob}`);
+        runStartTime = performance.now();
       };
     }
     let anchor = document.createElement("a");
@@ -293,7 +307,6 @@ function htmlify(rootpath, html, xml, parentpath) {
   }
 }
 
-let caselist = document.getElementById("caselist");
 loadBtn.onclick = () => {
   if (crashed) return;
   caselist.innerHTML = "";
@@ -327,6 +340,7 @@ function start(args) {
     deqp = new Module.dEQPJS(args);
     deqp.log = deqp.getTestLog();
     requestAnimationFrame(iterate);
+    statusBox.value = "Running...";
   } catch (e) {
     stop();
     crash(e);
@@ -334,18 +348,35 @@ function start(args) {
   }
 }
 
+function doAutoDownload() {
+  if (lastStartedQpa && autoDownloadBtn.checked) {
+    downloadString(getFileContents(lastStartedQpa), "text/plain", lastStartedQpa);
+  }
+  lastStartedQpa = null;
+}
+
 function stop() {
   updateFileList();
   stopBtn.disabled = true;
   if (deqp) {
     deqp.delete();
+    doAutoDownload();
   }
   deqp = null;
 }
 
+silentModeBtn.onclick = () => {
+  canvas.style.visibility = silentModeBtn.checked ? "hidden" : "visible";
+};
+
 function flushResultsQueue() {
   let path, resultName, description, li;
   while (deqp.log.peekNextExists()) {
+    if (silentModeBtn.checked) {
+      deqp.log.pop();
+      continue;
+    }
+
     path = deqp.log.peekNextPath();
     let result = deqp.log.peekNextResult();
     resultName = deqp.log.peekNextResultName();
@@ -367,8 +398,13 @@ function flushResultsQueue() {
     }
   }
 
+  if (silentModeBtn.checked) {
+    return;
+  }
+
   if (path) {
     statusBox.value = `${resultName}\n${path}\n\n${description}`;
+
     if (autoscrollBtn.checked) {
       let anchor = li.jumpAnchor;
       anchor.scrollIntoView(true);
@@ -399,7 +435,10 @@ function iterate() {
     if (more) {
       requestAnimationFrame(iterate);
     } else {
-      statusBox.value = "Test run completed: " + lastStartedPathGlob;
+      let runTime = Math.floor(performance.now() - runStartTime) / 1000;
+      statusBox.value =
+        `Test run completed in ${runTime}s:\n${lastStartedPathGlob}`;
+      lastStartedPathGlob = null;
       stop();
     }
   } catch (e) {
