@@ -19,7 +19,7 @@ See the Progress Report for much more detailed documentation.
   Emscripten’s emulated filesystem. They can then be saved and loaded into
   Cherry.
     * By default, the `qpa` files are automatically downloaded so they are
-      preserved if there's a crash.
+      preserved if there's a crash in a subsequent run.
 * If you're debugging a particular test or test group, you probably want to
   have your browser's development tools open.
 * Test execution is driven by requestAnimationFrame (to prevent drowning the
