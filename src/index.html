@@ -222,7 +222,7 @@ setTimeout(() => {
       Module.wasmBinary = buffer;
       let script = document.createElement("script");
       script.src = "deqp.js";
-      document.body.append(script);
+      document.body.appendChild(script);
     });
 }, 0);
 
