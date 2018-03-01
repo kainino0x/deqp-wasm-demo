@@ -1,10 +1,21 @@
+<!DOCTYPE html>
 <html>
 <head>
-<script>
-  window.location.replace("http://kai.graphics/deqp-web-harness-live/" + window.location.hash);
-</script>
 </head>
 <body>
-Redirecting to <a href="http://kai.graphics/deqp-web-harness-live/">http://kai.graphics/deqp-web-harness-live/</a>...
+  This page has moved to
+  <a id="link" href="http://kai.graphics/deqp-web-harness-live/">
+    http://kai.graphics/deqp-web-harness-live/</a>.
+
+  (If you're developing on this project and you're looking for your local
+  build, open <code>build/index.html</code> instead.)
+
+  <script>
+    // Rewrite the link so it includes the hash.
+    let link = document.getElementById("link");
+    let url = "http://kai.graphics/deqp-web-harness-live/" + window.location.hash;
+    link.href = url;
+    link.innerText = url;
+  </script>
 </body>
 </html>

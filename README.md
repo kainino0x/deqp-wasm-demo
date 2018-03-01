@@ -9,6 +9,9 @@
 See the Progress Report for much more detailed documentation.
 
 ## Running Tests
+
+(See also **Opening**, below.)
+
 * Wait for page and WASM module to load.
 * Enter a root test group and Load Root. E.g.:
     * `dEQP-GLES2`
@@ -83,9 +86,10 @@ emcmake cmake ../deqp
     # This is the only well-tested build type.
     -DCMAKE_BUILD_TYPE=RelWithDebInfo
     # Include patches needed to prevent some tests from crashing the harness.
-    -DCMAKE_EXE_LINKER_FLAGS='--js-library ../third_party/emscripten-library_gl/library_gl.js'
+    -DCMAKE_EXE_LINKER_FLAGS="--js-library ../third_party/emscripten-library_gl/library_gl.js"
     # (optional) Use Ninja instead of Make.
     -GNinja
+cp ../src/index.html .
 ```
 
 By default, only ES2 and ES3 are built (no EGL, ES31, GL, or Vulkan).
@@ -100,6 +104,22 @@ ninja deqp.js
 ```
 
 (Ninja is optional. Makefiles should work too.)
+
+## Opening
+
+Opening the `index.html` file directly (via the `file://` protocol) won't work.
+
+Instead, host a local server inside the `build/` directory. Any server should
+do. For example:
+
+* Use the `http-server` module from npm.
+    * `http-server -c-1 -p8000`
+* Use Python's built-in server. It is known to occasionally hang and have other
+  strange performance issues.
+    * `python3 -m http.server 8000`
+    * `python2 -m SimpleHTTPServer 8000`
+
+Open `http://localhost:8000/` in your browser.
 
 ## Known Issues
 
