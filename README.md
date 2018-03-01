@@ -73,6 +73,10 @@ These steps have been tested on Linux and macOS.
     emcmake cmake .
     ```
 
+**On Windows,** it currently may be necessary to make a small patch to zlib in
+order to build the project:
+In `deqp\external\zlib\src\gzguts.h`, add `#include <unistd.h>`.
+
 ## Configuring
 
 * Make a build directory (in the deqp-web-harness repository root).
