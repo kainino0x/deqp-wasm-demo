@@ -9,29 +9,34 @@
 See the Progress Report for much more detailed documentation.
 
 ## Running Tests
-
-First, enter a test root and click "Load Root".
-This test root can be any test group, e.g.:
-
-* `dEQP-GLES2`
-* `dEQP-GLES2.functional`
-* `dEQP-GLES2.functional.shaders.preprocessor.conditional_inclusion`
-
-(It can't be an individual test, currently.)
-
-To run a test or test group, click the Run button.
-If you're debugging a particular test or test group, you probably want to have
-your browser's development tools open.
+* Wait for page and WASM module to load.
+* Enter a root test group and Load Root. E.g.:
+    * `dEQP-GLES2`
+    * `dEQP-GLES2.functional`
+    * `dEQP-GLES2.functional.shaders.preprocessor.conditional_inclusion`
+    * (It can't be an individual test, currently.)
+* Each Run button kicks off a test run. Each test run produces a `qpa` file in
+  Emscripten’s emulated filesystem. They can then be saved and loaded into
+  Cherry.
+    * By default, the `qpa` files are automatically downloaded so they are
+      preserved if there's a crash.
+* If you're debugging a particular test or test group, you probably want to
+  have your browser's development tools open.
+* Test execution is driven by requestAnimationFrame (to prevent drowning the
+  GPU process in work). This has the side-effect that it only runs while in the
+  foreground.
+* Individual test failures should be reasonably easy to track down based on the
+  output printed to the console/stdout and saved in the `qpa` file.
 
 ## Viewing Test Results
 
 Each test run will produce a new `.qpa` file.
-These files can be downloaded, then loaded in
+These files can sometimes be read by hand, but they can also be loaded in
 [Cherry](https://android.googlesource.com/platform/external/cherry/+/master/README)'s
 "Results" tab.
 Results between different test runs (different browsers, builds, etc.) can be
 compared in Cherry using the "Compare selected" functionality.
-(Tests cannot be executed in the web harness directly from Cherry.)
+(Note: Tests cannot be executed in the web harness directly from Cherry.)
 
 **Tip:** `.qpa` files can be concatenated. For example, in order to get test
 results for `dEQP-GLES3` (which runs out of memory in the middle), I ran each
@@ -75,19 +80,18 @@ These steps have been tested on Linux and macOS.
 mkdir build
 cd build
 emcmake cmake ../deqp
-    # This is the only tested build type.
+    # This is the only well-tested build type.
     -DCMAKE_BUILD_TYPE=RelWithDebInfo
     # Include patches needed to prevent some tests from crashing the harness.
     -DCMAKE_EXE_LINKER_FLAGS='--js-library ../third_party/emscripten-library_gl/library_gl.js'
     # (optional) Use Ninja instead of Make.
     -GNinja
-    # (optional) Enable ES2 (ON by default)
-    -DDEQP_SUPPORT_GLES2=ON
-    # (optional) Enable ES3 (ON by default)
-    -DDEQP_SUPPORT_GLES3=ON
-    # (optional) Disable ES3.1 (ON by default)
-    -DDEQP_SUPPORT_GLES31=OFF
 ```
+
+By default, only ES2 and ES3 are built (no EGL, ES31, GL, or Vulkan).
+
+To enable/disable particular configurations (e.g. enable ES31), modify dEQP's
+CMakeLists.txt files.
 
 ## Building
 
@@ -95,7 +99,10 @@ emcmake cmake ../deqp
 ninja deqp.js
 ```
 
+(Ninja is optional. Makefiles should work too.)
+
 ## Known Issues
 
 * Incremental builds do not always work - some changes are not reflected (such
-  as changes to `library_gl.js`). To work around this, delete `build/deqp.js`.
+  as changes to `library_gl.js`). To work around this, delete `build/deqp.js`
+  and rebuild.
