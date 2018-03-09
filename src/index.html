@@ -300,8 +300,8 @@ function htmlify(rootpath, html, xml, parentpath) {
       let ul = document.createElement("ul");
       ul.classList.add("subgroup");
       li.appendChild(ul);
-      for (let child of xml.children) {
-        htmlify(rootpath, ul, child, path);
+      for (let i = 0; i < xml.children.length; ++i) {
+        htmlify(rootpath, ul, xml.children[i], path);
       }
     }
   }
